@@ -1,0 +1,237 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+
+        </head>
+<body>
+<div class="container">
+<h1>Task Manager</h1>
+    <div id="loginSection">
+        <div class="card">
+            <h2>login</h2>
+            <input type="email"
+                   id="loginEmail"
+                   placeholder="email"
+            />
+            <input type="password"
+                   id="loginPassword"
+                   placeholder="password"
+                   />
+            <button onclick="login()">Login</button>
+            <button onclick="showRegister()" style="background:#2196F3;margin-top: 8px;">Don't have account?</button>
+
+        </div>
+        <div class="card" id="registerCard" style="display:none;">
+            <h2> Register </h2>
+            <input type="text"
+                   id="registerName"
+                   placeholder="Name"/>
+            <input type="email"
+                   id="registerEmail"
+                   placeholder="Email"/>
+            <input type="password"
+                     id="registerPassword"
+                   placeholder="Password"/>
+            <button onclick="register()">Register</button>
+        </div>
+
+    </div>
+    <div id="appSection" style="display:none;">
+
+        <div class="card">
+            <div style="display:flex;
+                        justify-content:space-between;
+                        align-items:center;">
+                <h2>My Tasks</h2>
+                <button onclick="logout()"
+                        style="background:#f44336;
+                               width:auto;
+                               padding:8px 16px;">
+                    Logout
+                </button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Add New Task</h2>
+            <input type="text"
+                   id="taskTitle"
+                   placeholder="Task title..." />
+            <button onclick="createTask()">Add Task</button>
+        </div>
+
+        <div class="card">
+            <h2>Tasks</h2>
+            <div id="taskList">Loading...</div>
+        </div>
+        </div>
+    </div>
+<script>
+    const API='http://localhost:8080';
+    let token='';
+    function showRegister(){
+        const card=document.getElementById('registerCard');
+        if(card.style.display === 'none'){
+            card.style.display='block';
+        }else{
+            card.style.display='none';
+        }
+    }
+    async function register(){
+        const name=document.getElementById('registerName').value;
+        const email=document.getElementById('registerEmail').value;
+        const password=document.getElementById('registerPassword').value;
+        const response = await fetch(`${API}/api/auth/register`,{
+            method :'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({name,email,password})
+        });
+        const text=await response.text();
+        alert(text);
+    }
+    async function login(){
+        const email=document.getElementById('loginEmail').value;
+        const password=document.getElementById('loginPassword').value;
+        const response=await fetch(`${API}/api/auth/login`,{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({email,password})
+        });
+        if(response.ok){
+            token=await response.text();
+            document.getElementById('loginSection').style.display='none';
+            document.getElementById('appSection').style.display='block';
+            loadTasks();
+        }else{
+            alert('Wrong email or passeord');
+        }
+    }
+    function logout(){
+        token='';
+        document.getElementById('loginSection').style.display='block';
+        document.getElementById('appSection').style.display='none';
+    }
+    async function loadTasks() {
+        const response = await fetch(`${API}/api/tasks`, {
+            headers: {'Authorization': `Bearer ${token}`}
+        });
+        const tasks = await response.json();
+        const list = document.getElementById('taskList');
+        if (tasks.length === 0) {
+            list.innerHTML = '<p style="color:#999;">No tasks yet.</p>';
+            return;
+        }
+        list.innerHTML = tasks.map(task => `
+            <div style="display:flex; justify-content:space-between;
+                        align-items:center; padding:12px;
+                        border-bottom:1px solid #eee;">
+                <span style="${task.completed ?
+            'text-decoration:line-through; color:#999;' : ''}">
+                    ${task.title}
+                </span>
+                <div style="display:flex; gap:8px;">
+                    <button onclick="toggleTask(${task.id}, ${task.completed}, '${task.title}')"
+                            style="background:${task.completed ? '#999' : '#4CAF50'};
+                                   width:auto; padding:6px 12px;">
+                        ${task.completed ? 'Undo' : 'Done'}
+                    </button>
+                    <button onclick="deleteTask(${task.id})"
+                            style="background:#f44336; width:auto; padding:6px 12px;">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    async function createTask(){
+const title=document.getElementById('taskTitle').value;
+if(!title){
+    alert('please enter a title');
+    return;
+}
+await fetch(`${API}/api/tasks`,{
+    method:'POST',
+    headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${token}`
+    },
+    body:JSON.stringify({title,completed:false})
+        });
+document.getElementById('taskTitle').value='';
+loadTasks();
+    }
+    async function toggleTask(id,completed,title){
+        await fetch(`${API}/api/tasks/${id}`,{
+            method:'PUT',
+            headers:{
+                'Content-Type':'application/json',
+                'Authorization':`Bearer ${token}`
+            },
+            body:JSON.stringify({title,completed:!completed})
+        });
+        loadTasks()
+    }
+    async function deleteTask(id){
+        await fetch(`${API}/api/tasks/${id}`,{
+            method:'DELETE',
+            headers:{'Authorization':`Bearer ${token}`}
+        });
+        loadTasks();
+    }
+</script>
+</body>
+</html>
